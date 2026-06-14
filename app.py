@@ -2,6 +2,7 @@ import streamlit as st
 import pickle
 import requests
 
+
 # def fetch_poster(movie_id):
 #     url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key=c7ec19ffdd3279641fb606d19ceb9bb1&language=en-US"
 
@@ -43,9 +44,27 @@ movies_list=movies['title'].values
 
 st.header("Movie Recommender System")
 
+import os
+import zipfile
 import streamlit.components.v1 as components
 
-imageCarouselComponent = components.declare_component("image-carousel-component", path="frontend/public")
+# Fix for Streamlit Cloud deployment: Use absolute path relative to this file
+parent_dir = os.path.dirname(os.path.abspath(__file__))
+build_dir = os.path.join(parent_dir, "frontend", "public")
+
+# If the frontend directory does not exist, try to extract it from frontend.zip
+if not os.path.exists(build_dir):
+    zip_path = os.path.join(parent_dir, "frontend.zip")
+    if os.path.exists(zip_path):
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(parent_dir)
+        except Exception as e:
+            print(f"Error extracting frontend.zip: {e}")
+    else:
+        print("frontend.zip not found to extract.")
+
+imageCarouselComponent = components.declare_component("image-carousel-component", path=build_dir)
 
 
 imageUrls = [
@@ -82,12 +101,13 @@ selectvalue=st.selectbox("Select movie from dropdown", movies_list)
 
 def recommend(movie):
     index = movies[movies['title'] == movie].index[0]
-    distance = sorted(list(enumerate(similarity[index])), reverse=True, key=lambda vector: vector[1])
+    # similarity[index] now contains only the indices of top recommendations
+    movie_indices = similarity[index]
     recommend_movie = []
     recommend_poster = []
-    for i in distance[1:9]:
-        movies_id = movies.iloc[i[0]].id
-        recommend_movie.append(movies.iloc[i[0]].title)
+    for i in movie_indices[1:9]: # Top 8 recommendations
+        movies_id = movies.iloc[i].id
+        recommend_movie.append(movies.iloc[i].title)
         recommend_poster.append(fetch_poster(movies_id))
     return recommend_movie, recommend_poster
 
